@@ -1,0 +1,104 @@
+
+#terraform-ce.yml
+
+trigger:
+- feature/harikrishnapalakila
+
+parameters:
+  - name: Image
+    displayName: PoolImage
+    defualt: windows-latest
+    type: string
+    values:
+      - windows-latest 
+      - ubuntu-latest
+    environment : 
+
+stages:
+  - stage: Build-Stage
+    jobs:
+      - job: terraform_init
+        pool:
+          vmImage: ${{parameters.Image}}
+        steps:
+          - script: echo building ${Build.BuildNumer} with ${{parameter.Image}}
+        steps:
+          - script: echo Running terraform-ce pipeline
+            displayName: 'Running terraform-ce pipeline'
+          - sciprt: echo We are running single pipeline - with multiple tasks - version, init, plan, validate, scan and deploy
+            displayName: 'Single-pipeline with multiple tasks'
+
+          - task: charleszipp.azure-pipelines-tasks-terraform.azure-pipelines-tasks-terraform-cli.TerraformCLI@0
+            displayName:  'Install Terraform Latest'
+
+          #- task: TerraformInstaller
+          #  displayName: install terraform
+          #  inputs:
+          #    terraformVersion: 0.14.3
+
+          - task: TerraformCLI@1
+            displayName: 'check terraform version'
+            inputs:
+              command: version
+          # We are connecting to Azure Cloud
+
+          - task: TerraformCLI@2
+            displayName: 'terraform init'
+            inputs:
+              command: init
+              backendType: azurerm
+              backendServiceArm: 'Preprod_Azure_Service_Connection' 
+              backendAzureRmSubscriptionId: 'preprod-subscription-id'
+              ensureBackend: true
+              backendAzureRmResourceGroupName: 'hal-logi-preprod-backend-rg'
+              backendAzureRmResourceGroupLocation: 'eastus'
+              backendAzureRmStorageAccountName: 'hal-logia-preprod-sa'
+              backendAzureRmStorageAccountSku: 'Standard_RAGRS'
+              backendAzureRmContainerName: 'hal-logia-container'
+              backendAzureRmKey: preprod-adf.tfstate
+  
+          - task: TerraformCLI@3
+            displayName: 'terraform plan'
+            inputs:
+              command: plan
+              environmentServiceName: 'Preprod_Azure_Service_Connection'
+              secureVarsFile: hal-logia-preprod.env
+              commandOptions: '-var secret=$(mySecretPipelineVar)'
+          - task: TerraformCLI@4
+            displayName: 'terraform validate'
+            inputs:
+              provider: 'azurerm'
+              command: 'validate'  
+  
+   stage: Code Scan
+    jobs:
+      - job: ScanJob-Compliance
+        pool:
+          vmImage: ${{parameters.Image}}
+        steps:
+          - script: echo building ${Build.BuildNumer} with ${{parameter.Image}
+            displayName: 'Run Terrascan'
+          - script: 
+            'curl --location https://github.com/accurics/terrascan/releases/download/v1.3.1/terrascan_1.3.1_Linux_x86_64.tar.gz --output terrascan.tar.gz && tar -xvf terrascan.tar.gz && sudo install terrascan /usr/local/bin'
+            displayName: 'Download tools'
+          - task: TerraformCLI@5
+            displayName: 'Run terrascan'
+            inputs:
+              script: 'terrascan scan -d $(System.DefaultWorkingDirectory)/terraform'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+              continueOnError: true
+   stage: Terraform code deployment 
+    jobs:  
+      - job: Terraform-deploy 
+        pool:
+          vmImage: ${{parameters.Image}}
+        steps:      
+          - task: TerraformCLI@5
+            displayName: 'apply'
+            inputs:
+              provider: 'azurerm'
+              command: 'apply'
+              #commandOptions: '-input=false -auto-approve -var-file="../vars/${{ parameters.environment }}/${{ parameters.environment }}.tfvars"'
+              commandOptions: ' -auto-approve'
+              environmentServiceNameAzureRM: '${{ parameters.backendServiceArm }}'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/terraform/' 

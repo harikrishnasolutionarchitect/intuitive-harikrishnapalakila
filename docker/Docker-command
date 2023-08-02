@@ -1,0 +1,23 @@
+## ######################################################################################  
+##                                                                                     ##
+##              Docker Commands for Build Docker Image                                 ##
+##                                                                                     ##
+## ######################################################################################
+
+
+##   INFO --  1. Docker Build Command :
+##
+#    docker build -t intuitive-tool-avail-kubectl-awscli-sleep-image-release:0.0.1 -f Dockerfile .
+##
+##
+##
+##   INFO -- 2. Docker Image Tag :
+##
+#    docker tag intuitive-tool-avail-kubectl-awscli-sleep-image-release:0.0.1 dockerhub1233/intuitive:intuitive-tool-avail-kubectl-awscli-sleep-image-release-0.0.1
+##
+##
+##   INFO -- 3. Docker Image push to DockerHub
+##
+#    docker push dockerhub1233/intuitive:intuitive-tool-avail-kubectl-awscli-sleep-image-release-0.0.1
+##
+##
